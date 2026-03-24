@@ -1,0 +1,76 @@
+# .antigravityrules - Postman-Lite Architecture & Guidelines
+
+## 1. Visão Geral do Projeto
+O **Postman-Lite** é um cliente de API de alto desempenho, focado em privacidade e baixíssima latência, operando sob o paradigma **Local-First**. Ele deve funcionar como um binário Desktop (Electron) e como uma PWA sincronizada. O diferencial técnico reside no bypass de CORS via IPC no Desktop e persistência total via IndexedDB.
+
+---
+
+## 2. Stack Tecnológica Definitiva
+
+### **Core & Runtime**
+* **Desktop Container:** Electron (Latest Stable)
+* **Frontend Framework:** React + Vite (Configuração SWC para performance)
+* **State Management:** Zustand (Leve, ideal para sincronização com DB)
+* **Persistence:** Dexie.js (Wrapper robusto para IndexedDB)
+* **Networking:** `axios` ou `undici` (Main Process) / `fetch` (Renderer/PWA)
+
+### **UI & UX**
+* **Styling:** TailwindCSS
+* **Icons:** Lucide React
+* **Code Editor:** `@monaco-editor/react` (Configurado para carregamento via ESM/Worker)
+* **Components:** Radix UI (Primitives para Acessibilidade)
+
+### **Tooling & DX**
+* **Language:** TypeScript (Strict Mode)
+* **Linter/Formatter:** ESLint + Prettier
+* **Build:** `electron-builder` (Configuração Lean)
+
+### **Testing Suite (QA)**
+* **Unit & Integration:** Vitest (Rápido, compatível com Vite)
+* **Component Testing:** React Testing Library
+* **E2E Testing:** Playwright (Suporte nativo para testes em apps Electron)
+* **Mocking:** MSW (Mock Service Worker) para simular APIs em testes de UI
+
+---
+
+## 3. Arquitetura Local-First & Segurança
+
+### **3.1. Comunicação Segura (IPC Bridge)**
+Toda requisição HTTP no modo Desktop **DEVE** passar pelo `contextBridge` para evitar restrições de CORS.
+* **Proibido:** Habilitar `nodeIntegration: true`.
+* **Obrigatório:** `contextIsolation: true`.
+* O arquivo `preload.js` deve expor apenas um objeto `window.api` com métodos tipados e sanitizados.
+
+### **3.2. Estratégia de Persistência**
+* Os dados são "Sovereign": o IndexedDB (via Dexie) é a única fonte da verdade.
+* **Sync Strategy:** O estado das abas e coleções deve ser persistido a cada mudança (debounce) para garantir que o fechamento do app não cause perda de progresso.
+
+---
+
+## 4. Regras de Desenvolvimento (Instruções para a IA)
+
+1. **Código Limpo:** Priorize Functional Components e Hooks customizados (ex: `useRequest`, `useCollections`, `useEnvironments`).
+2. **Performance de Resposta:** Respostas JSON/XML grandes (> 2MB) devem ser renderizadas de forma otimizada no Monaco Editor para evitar travamento da UI.
+3. **Bypass de CORS:** Ao gerar código de requisição, a lógica deve verificar se `window.api` existe. Se sim, usar IPC; caso contrário, usar `fetch` (comportamento PWA).
+4. **Tratamento de Erros:** Implementar um Error Boundary global e notificações via Toast para falhas de rede ou parsing de JSON.
+5. **Testes:** Todo novo componente de lógica de negócio ou helper de transformação de dados deve possuir um arquivo `.test.ts(x)` correspondente.
+
+---
+
+## 5. Configuração de Build (Lean Strategy)
+
+O `electron-builder.yml` deve ser configurado para gerar um binário minimalista:
+* Remover `devDependencies` do pacote final de produção.
+* Utilizar `asar: true` para proteção e performance de leitura.
+* Compressão `maximum` no instalador.
+* Excluir arquivos de mapa de fonte (`.map`) do bundle final de produção.
+
+---
+
+## 6. Comandos de Referência
+* `npm run dev`: Inicia Vite + Electron em modo hot-reload.
+* `npm run test`: Executa a suíte de testes Vitest.
+* `npm run build`: Gera o bundle PWA e o executável Desktop otimizado.
+
+---
+**Diretriz Final:** "Mantenha a simplicidade visual do VS Code, mas com o poder de requisição de uma ferramenta de baixo nível. Privacidade local e performance são inegociáveis."
