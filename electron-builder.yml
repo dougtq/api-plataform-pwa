@@ -1,0 +1,31 @@
+appId: com.dougtq.api-plataform-pwa
+productName: API Platform
+directories:
+  output: release
+  buildResources: build
+files:
+  - from: .
+    filter:
+      - package.json
+      - dist/**/*
+  - from: dist/main
+    to: dist/main
+  - from: dist/preload
+    to: dist/preload
+  - from: dist/renderer
+    to: dist/renderer
+asar: true
+asarUnpack:
+  - "**/*.node"
+linux:
+  target:
+    - AppImage
+    - deb
+win:
+  target:
+    - nsis
+mac:
+  target:
+    - dmg
+extraMetadata:
+  main: dist/main/index.js

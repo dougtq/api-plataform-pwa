@@ -1,0 +1,86 @@
+@import "tailwindcss";
+
+@theme {
+  --color-border: #222222;
+  --color-surface-dark: #0a0a0a;
+  --color-surface: #0f0f0f;
+  --color-surface-light: #181818;
+  --color-accent: #00ff88;
+  --color-accent-dim: #00ff8822;
+}
+
+:root {
+  --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', 'Fira Code', monospace;
+  
+  --bg-main: var(--color-surface-dark);
+  --border-color: var(--color-border);
+  --accent-color: var(--color-accent);
+}
+
+@layer base {
+  body {
+    background-color: var(--bg-main);
+    color: #e4e4e7;
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    overflow: hidden;
+  }
+
+  code, pre {
+    font-family: var(--font-mono);
+  }
+}
+
+@layer components {
+  .glass-panel {
+    @apply bg-surface/80 backdrop-blur-md border border-border;
+  }
+
+  .tab-active {
+    @apply bg-surface text-accent border-t-2 border-t-accent;
+  }
+
+  .tab-inactive {
+    @apply bg-surface-dark text-zinc-500 hover:text-zinc-300 hover:bg-surface-light transition-all;
+  }
+
+  .btn-primary {
+    @apply bg-accent text-black font-bold py-2 px-4 rounded-sm hover:opacity-90 active:scale-95 transition-all uppercase text-xs tracking-widest;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    @apply bg-zinc-800 rounded-full hover:bg-zinc-700;
+  }
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out forwards;
+}
+
+.noir-card {
+  @apply bg-surface border border-border p-5 rounded-sm transition-all duration-300;
+}
+
+.noir-card:hover {
+  @apply border-accent/40 shadow-[0_0_15px_-3px_rgba(0,255,136,0.2)];
+}
+
+.accent-text {
+  @apply text-accent uppercase text-[10px] tracking-[0.2em] font-bold opacity-80;
+}
