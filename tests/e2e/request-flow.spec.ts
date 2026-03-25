@@ -1,6 +1,10 @@
 import { _electron as electron } from '@playwright/test';
 import { test, expect } from '@playwright/test';
-import { join } from 'path';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 test('Abrir app -> Criar Request -> Receber 200 OK via IPC', async () => {
   const electronApp = await electron.launch({
@@ -8,12 +12,19 @@ test('Abrir app -> Criar Request -> Receber 200 OK via IPC', async () => {
   });
 
   const window = await electronApp.firstWindow();
-  
-  // Wait for the app to be ready
-  await window.waitForSelector('input[placeholder="https://api.example.com/v1/resource"]', { timeout: 10000 });
+  await window.waitForLoadState('domcontentloaded');
+  // console.log('Window found, waiting for UI...');
 
-  // 1. Enter URL
+  // 0. Click "New Request" button to create an active tab
+  // Use a more resilient selector
+  const newRequestBtn = window.locator('button[title="New Request"]');
+  await newRequestBtn.waitFor({ state: 'visible', timeout: 15000 });
+  await newRequestBtn.click();
+  // console.log('Clicked New Request');
+
+  // Wait for the app to be ready (input should appear now)
   const urlInput = window.locator('input[placeholder="https://api.example.com/v1/resource"]');
+  await urlInput.waitFor({ state: 'visible', timeout: 15000 });
   await urlInput.fill('https://jsonplaceholder.typicode.com/todos/1');
 
   // 2. Click Send
