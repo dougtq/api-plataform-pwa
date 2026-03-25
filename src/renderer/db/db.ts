@@ -1,40 +1,61 @@
 import Dexie, { Table } from 'dexie'
 
+/**
+ * Represents a Collection of requests.
+ */
 export interface Collection {
   id?: number
   name: string
   description?: string
-  metadata?: Record<string, any> // Flexible Postman support
+  /** 
+   * Extra metadata for the collection, such as Postman variables and events.
+   */
+  metadata?: Record<string, any>
   createdAt: number
 }
 
+/**
+ * Represents a Folder within a collection.
+ * Supports hierarchical structure via parentId.
+ */
 export interface Folder {
   id?: number
   collectionId: number
-  parentId?: number // Reference to another parent folder
+  parentId?: number // Reference to another parent folder (optional)
   name: string
   createdAt: number
 }
 
+/**
+ * Represents an HTTP Request.
+ * All dynamic values like headers and params are stored as arrays for UI flexibility.
+ */
 export interface Request {
   id?: number
   collectionId?: number
-  folderId?: number // Reference to a folder
+  folderId?: number // Optional reference to a folder
   name: string
   method: string
   url: string
-  headers?: any[] // Array of { key, value, enabled }
-  params?: any[]  // Array of { key, value, enabled }
+  /** Array of { id, key, value, enabled } */
+  headers?: any[] 
+  /** Array of { id, key, value, enabled } */
+  params?: any[]  
+  /** Authentication configuration */
   auth?: {
     type: 'none' | 'basic' | 'bearer'
     basic?: { username: string; password: string }
     bearer?: { token: string }
   }
   body?: any
+  /** Metadata like path, description, and Postman events */
   metadata?: Record<string, any>
   createdAt: number
 }
 
+/**
+ * Stores execution results of historical requests.
+ */
 export interface HistoryItem {
   id?: number
   requestId?: number
@@ -46,6 +67,9 @@ export interface HistoryItem {
   response?: any
 }
 
+/**
+ * Main application database using Dexie.js (IndexedDB).
+ */
 export class AppDatabase extends Dexie {
   collections!: Table<Collection>
   folders!: Table<Folder>
@@ -54,6 +78,7 @@ export class AppDatabase extends Dexie {
 
   constructor() {
     super('AppDatabase')
+    // Define schema version 3
     this.version(3).stores({
       collections: '++id, name, createdAt',
       folders: '++id, collectionId, parentId, name',
@@ -63,4 +88,8 @@ export class AppDatabase extends Dexie {
   }
 }
 
+/**
+ * Export a singleton instance of the database.
+ */
 export const db = new AppDatabase()
+

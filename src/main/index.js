@@ -1,14 +1,18 @@
 import { app, BrowserWindow, ipcMain } from 'electron';
-import { join } from 'path';
+import { join, dirname } from 'path';
+import { fileURLToPath } from 'url';
 import axios from 'axios';
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 process.env.DIST = join(__dirname, '../');
 process.env.VITE_DEV_SERVER_URL = process.env['VITE_DEV_SERVER_URL'];
+app.disableHardwareAcceleration();
 function createWindow() {
     const win = new BrowserWindow({
         width: 1000,
         height: 700,
         backgroundColor: '#020617', // Match Slate-950
-        show: false,
+        show: true,
         frame: true,
         webPreferences: {
             preload: join(__dirname, '../preload/index.js'),
@@ -16,16 +20,14 @@ function createWindow() {
             contextIsolation: true,
         },
     });
+    // console.log('Window created, loading URL/File...')
     win.setMenuBarVisibility(false);
     if (process.env.VITE_DEV_SERVER_URL) {
         win.loadURL(process.env.VITE_DEV_SERVER_URL);
     }
     else {
-        win.loadFile(join(process.env.DIST || '', 'renderer/index.html'));
+        win.loadFile(join(process.env.DIST || '', 'index.html'));
     }
-    win.once('ready-to-show', () => {
-        win.show();
-    });
 }
 app.whenReady().then(() => {
     createWindow();

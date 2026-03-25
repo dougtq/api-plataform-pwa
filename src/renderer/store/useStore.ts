@@ -2,6 +2,9 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { db, Collection, Folder, Request, HistoryItem } from '../db/db'
 
+/**
+ * Represents a key-value pair used for headers and query parameters.
+ */
 export interface KeyValue {
   id: string
   key: string
@@ -10,9 +13,12 @@ export interface KeyValue {
   enabled: boolean
 }
 
+/**
+ * Represents a UI tab (either saved request or unsaved preview).
+ */
 export interface Tab {
   id: string
-  requestId?: number
+  requestId?: number // Link to the database request ID
   name: string
   method: string
   url: string
@@ -33,10 +39,13 @@ export interface Tab {
     size: number
     headers: Record<string, string>
   }
-  isPersistent: boolean
+  isPersistent: boolean // false for preview tabs, true for saved/dirty tabs
   isDirty: boolean
 }
 
+/**
+ * Global state for the application.
+ */
 interface AppState {
   collections: Collection[]
   requests: Request[]
@@ -44,25 +53,39 @@ interface AppState {
   tabs: Tab[]
   activeTabId: string | null
   
-  // Data Actions
+  // --- Data Actions (DB Persistence) ---
+  
+  /** Loads all data from IndexedDB into memory. */
   loadData: () => Promise<void>
+  /** Adds a new collection to the DB. */
   addCollection: (name: string, description?: string) => Promise<void>
+  /** Deletes a collection from the DB. */
   deleteCollection: (id: number) => Promise<void>
+  /** Adds a single request to the DB. */
   addRequest: (request: Omit<Request, 'id' | 'createdAt'>) => Promise<number>
+  /** Adds an item to the execution history. */
   addHistory: (item: Omit<HistoryItem, 'id' | 'timestamp'>) => Promise<void>
   
-  // Tab Actions
+  // --- Tab Actions (UI State) ---
+  
+  /** Opens a new tab (or replaces the current preview tab). */
   addTab: (tabData: Partial<Tab>) => void
+  /** Closes a specific tab by ID. */
   closeTab: (id: string) => void
+  /** Changes the currently active tab. */
   setActiveTab: (id: string) => void
+  /** Updates the state of a specific tab and marks it as dirty. */
   updateTab: (id: string, updates: Partial<Tab>) => void
+  /** Makes a preview tab persistent. */
   persistTab: (id: string) => void
+  /** Bulk imports a Postman collection. */
   importCollection: (
     collection: Omit<Collection, 'id'>, 
     requests: Omit<Request, 'id'>[], 
     folders?: Omit<Folder, 'id'>[],
     onProgress?: (processed: number, total: number) => void
   ) => Promise<void>
+  /** Executes the HTTP request for the currently active tab. */
   sendRequest: () => Promise<void>
 }
 
@@ -231,15 +254,17 @@ export const useStore = create<AppState>()(
         const startTime = Date.now()
         
         try {
-          // Import ApiService dynamically to avoid circular dependencies if any
+          // Dynamic import of ApiService to avoid potential circular dependencies
+          // during store initialization.
           const { ApiService } = await import('../services/ApiService')
           
+          // Flatten the array-based headers into a record for the API call
           const headers = activeTab.headers.reduce((acc, curr) => {
             if (curr.enabled && curr.key) acc[curr.key] = curr.value
             return acc
           }, {} as Record<string, string>)
 
-          // Add Auth headers
+          // Apply Authentication headers based on the selected type
           if (activeTab.auth.type === 'bearer' && activeTab.auth.bearer?.token) {
             headers['Authorization'] = `Bearer ${activeTab.auth.bearer.token}`
           } else if (activeTab.auth.type === 'basic' && activeTab.auth.basic) {
@@ -247,6 +272,7 @@ export const useStore = create<AppState>()(
             headers['Authorization'] = `Basic ${btoa(`${username}:${password}`)}`
           }
 
+          // Trigger the cross-platform request (bypasses CORS in Desktop mode)
           const response = await ApiService.request({
             method: activeTab.method as any,
             url: activeTab.url,
@@ -257,16 +283,17 @@ export const useStore = create<AppState>()(
           const endTime = Date.now()
           const responseData = {
             status: response.status,
-            statusText: response.status < 300 ? 'OK' : 'Error', // Simplified
+            statusText: response.status < 300 ? 'OK' : 'Error',
             data: response.data,
             time: endTime - startTime,
-            size: JSON.stringify(response.data).length, // Approximation
+            size: JSON.stringify(response.data).length, // Approximate size of response
             headers: response.headers || {}
           }
 
+          // Update UI with response data
           updateTab(activeTab.id, { response: responseData })
           
-          // Add to history
+          // Save execution to history log
           await addHistory({
             requestId: activeTab.requestId || 0,
             method: activeTab.method,
@@ -276,6 +303,7 @@ export const useStore = create<AppState>()(
           })
         } catch (error: any) {
           const endTime = Date.now()
+          // Handle and display request errors
           updateTab(activeTab.id, { 
             response: {
               status: error.status || 500,

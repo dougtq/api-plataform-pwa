@@ -49,7 +49,9 @@ describe('PostmanImporter', () => {
     expect(requests).toHaveLength(1)
     expect(requests[0].name).toBe('Sub Request')
     expect(requests[0].metadata?.path).toEqual(['Folder 1'])
-    expect(requests[0].headers).toEqual({ 'Content-Type': 'application/json' })
+    expect(requests[0].headers).toEqual(expect.arrayContaining([
+      expect.objectContaining({ key: 'Content-Type', value: 'application/json', enabled: true })
+    ]))
   })
 
   test('should parse scripts and variables', () => {
@@ -124,7 +126,8 @@ describe('PostmanImporter', () => {
         name: 'Req 1', 
         method: 'GET', 
         url: 'https://api.com', 
-        headers: { 'X-Test': 'val' },
+        // Use the internal array-based format for headers
+        headers: [{ key: 'X-Test', value: 'val', enabled: true }],
         body: { mode: 'raw', raw: '{}' },
         metadata: { events: [{ listen: 'test', script: { exec: ['pm.test'] } }] }
       }
@@ -137,6 +140,7 @@ describe('PostmanImporter', () => {
     expect(exported.item[0].name).toBe('Req 1')
     expect(exported.item[0].request.method).toBe('GET')
     expect(exported.item[0].request.header[0].key).toBe('X-Test')
+    expect(exported.item[0].request.header[0].value).toBe('val')
     expect(exported.item[0].request.body.raw).toBe('{}')
     expect(exported.item[0].event[0].listen).toBe('test')
     expect(exported.variable).toHaveLength(1)

@@ -1,9 +1,17 @@
 import { Collection, Folder, Request } from '../db/db'
 import { PostmanCollection, PostmanItem } from '../types/postman'
 
+/**
+ * PostmanImporter handles the conversion between Postman Collection format (v2.1)
+ * and the internal application data structures (Collection, Folder, Request).
+ */
 export class PostmanImporter {
   /**
    * Parses a Postman Collection JSON (v2.1) into internal Collection, Folder and Request types.
+   * 
+   * @param json - The Postman collection JSON string.
+   * @returns An object containing the parsed collection, requests, and folders.
+   * @throws Error if the JSON format is invalid.
    */
   static parseCollection(json: string): { 
     collection: Omit<Collection, 'id'>, 
@@ -12,10 +20,12 @@ export class PostmanImporter {
   } {
     const postman: PostmanCollection = JSON.parse(json)
     
+    // Basic validation of the Postman format
     if (!postman.info || !postman.item) {
       throw new Error('Invalid Postman Collection format')
     }
 
+    // Map global collection metadata
     const collection: Omit<Collection, 'id'> = {
       name: postman.info.name || 'Imported Collection',
       description: postman.info.description || '',
@@ -31,23 +41,23 @@ export class PostmanImporter {
     const folders: Omit<Folder, 'id'>[] = []
     
     /**
-     * Recursive function to traverse Postman items.
-     * Identifies if an item is a folder (contains 'item') or a request (contains 'request').
+     * Recursive function to traverse Postman items (folders and requests).
+     * 
+     * @param items - Postman items to traverse.
+     * @param path - The breadcrumb path of folders for this item.
      */
     const traverse = (items: PostmanItem[], path: string[] = []) => {
       for (const item of items) {
-        // Validation & Robustness: Ensure name exists
         const itemName = item.name || 'Unnamed Item'
 
         if (item.request) {
-          // It's a Request
+          // Process Request item
           const postmanReq = item.request
           
-          // Continuous Improvement: Validate mandatory fields
-          // Method: Default to GET if missing
+          // Ensure method is uppercase
           const method = (postmanReq.method || 'GET').toUpperCase()
           
-          // URL: Default to localhost if missing or empty
+          // Parse URL from either string or raw object field
           let url = ''
           if (typeof postmanReq.url === 'string') {
             url = postmanReq.url
@@ -56,6 +66,7 @@ export class PostmanImporter {
           }
           if (!url) url = 'http://localhost'
 
+          // Convert Postman headers (simple objects) to internal KeyValue format with unique IDs
           const headers: any[] = []
           if (postmanReq.header) {
             postmanReq.header.forEach(h => {
@@ -70,6 +81,7 @@ export class PostmanImporter {
             })
           }
 
+          // Push the request to the flat list
           requests.push({
             name: itemName,
             method: method,
@@ -84,15 +96,14 @@ export class PostmanImporter {
             }
           })
         } else if (item.item) {
-          // It's a Folder
+          // Process Folder item
           folders.push({
             name: itemName,
-            collectionId: 0, // Will be set by store
+            collectionId: 0, // Placeholder, actual ID is assigned when saving to DB
             createdAt: Date.now()
-            // parentId will be resolved by store or path
           })
           
-          // Recurse into sub-items
+          // Recurse into sub-items while updating the current path
           traverse(item.item, [...path, itemName])
         }
       }
@@ -105,6 +116,10 @@ export class PostmanImporter {
 
   /**
    * Serializes a collection and its requests back to Postman format (Export).
+   * 
+   * @param collection - The collection metadata.
+   * @param requests - The requests belonging to this collection.
+   * @returns A JSON string in Postman Collection v2.1 format.
    */
   static exportCollection(collection: Collection, requests: Request[]): string {
     const postman: PostmanCollection = {
@@ -118,7 +133,10 @@ export class PostmanImporter {
         request: {
           method: req.method,
           url: req.url,
-          header: Object.entries(req.headers || {}).map(([key, value]) => ({ key, value })),
+          // Correctly map internal array-based headers back to Postman's expected header list
+          header: Array.isArray(req.headers) 
+            ? req.headers.filter(h => h.enabled).map(h => ({ key: h.key, value: h.value }))
+            : [],
           body: req.body
         },
         event: req.metadata?.events || []
@@ -130,3 +148,4 @@ export class PostmanImporter {
     return JSON.stringify(postman, null, 2)
   }
 }
+
